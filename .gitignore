@@ -1,0 +1,6 @@
+.mypy_cache
+/tmp
+/.vscode
+__pycache__
+.idea
+custom_config.py

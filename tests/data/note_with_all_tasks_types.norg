@@ -1,0 +1,13 @@
+@code yaml
+- id: 42
+@end
+
+- ( ) undone task
+- (x) done task
+- (-) task in progress
+- (_) canceled task
+- (=) on hold task
+
+- (_) task with other list items
+  - list item 1
+  - `some info`
