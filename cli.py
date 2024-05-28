@@ -7,6 +7,7 @@ from collections import defaultdict
 from os import path
 from typing import Optional, Union
 import yaml
+import json
 from tabulate import tabulate
 
 import db
@@ -441,8 +442,7 @@ class Cli:
 
     e = edit
 
-    @needs_db
-    def search(self, *args: str):
+    def __search_parse_args(self, args):
         search_tags = []
         exclude_tags = []
         active_only = False
@@ -462,6 +462,16 @@ class Cli:
             elif arg in ["a", "active"]:
                 active_only = True
             i += 1
+        return {
+            "search_tags": search_tags,
+            "exclude_tags": exclude_tags,
+            "active_only": active_only,
+        }
+
+    def __search(self, search_options):
+        search_tags = search_options["search_tags"]
+        exclude_tags = search_options["exclude_tags"]
+        active_only = search_options["active_only"]
         search_result: list[Note] = []
         for note in self.nm.iter_notes():
             is_ok = True
@@ -478,6 +488,12 @@ class Cli:
                 is_ok = False
             if is_ok:
                 search_result.append(note)
+        return search_result
+
+    @needs_db
+    def search(self, *args: str):
+        search_options = self.__search_parse_args(args)
+        search_result = self.__search(search_options)
         table = []
         for i, note in enumerate(search_result):
             id = note.get_param("id")
@@ -655,6 +671,21 @@ class Cli:
 
     def save_config_in_db(self):
         save_config_in_db()
+
+    @needs_db
+    def get_json_search_result(self, *args):
+        search_options = self.__search_parse_args(args)
+        search_result = self.__search(search_options)
+        result = {
+            "notes": [],
+        }
+        for note in search_result:
+            result["notes"].append(note.to_dict_for_json())
+        return json.dumps(result)
+
+    @needs_db
+    def json_search(self, *args):
+        print(self.get_json_search_result(*args))
 
 
 if __name__ == "__main__":

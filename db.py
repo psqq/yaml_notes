@@ -22,7 +22,8 @@ def init_db(db_path=None):
     global con, cur
     if db_path is None:
         db_path = path.join(config.app_root, config.db_path)
-    con = sqlite3.connect(db_path)
+    con = sqlite3.connect(db_path, isolation_level=None)
+    con.execute("pragma journal_mode=wal")
     con.row_factory = dict_factory
     cur = con.cursor()
 
