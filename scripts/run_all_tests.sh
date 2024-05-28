@@ -7,3 +7,4 @@ bash run_test.sh NorgNoteFormat
 bash run_test.sh BaseDb
 bash run_test.sh DbOptions
 bash run_test.sh NoteManager
+bash run_test.sh NoteJsonSearch
