@@ -376,3 +376,15 @@ class Note:
             os.makedirs(file_dir)
         with open(filepath, "bw") as f:
             f.write(data)
+
+    def to_dict_for_json(self):
+        parameters_object = dict()
+        for param in self.params:
+            for k, v in param.items():
+                parameters_object[k] = v
+        return {
+            "parameters_array": self.params,
+            "parameters_object": parameters_object,
+            "created_at_timestamp": self.get_created_at().timestamp(),
+            "text": self.text,
+        }
