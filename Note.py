@@ -386,5 +386,6 @@ class Note:
             "parameters_array": self.params,
             "parameters_object": parameters_object,
             "created_at_timestamp": self.get_created_at().timestamp(),
+            "filepath": self.filepath,
             "text": self.text,
         }

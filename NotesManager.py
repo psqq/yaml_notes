@@ -98,6 +98,14 @@ class NotesManager:
             raise exception
         return note
 
+    def get_note_by_id(self, note_id: int) -> Optional[Note]:
+        row = db.get_note_by_id(note_id)
+        if not row:
+            return
+        fn = path.join(self.notes_dir, row["relative_path"])
+        note = self.load_note(fn)
+        return note
+
     def iter_notes_by_db(self, remove_row_on_file_not_found=True) -> Iterator[Note]:
         l = db.ListNotesById()
         for n in l.iter():

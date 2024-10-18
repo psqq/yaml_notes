@@ -84,6 +84,9 @@ class Cli:
         self.current_list = "in"
         self.current_list_reversed = False
 
+    def no_verbose(self) -> None:
+        self.nm._verbose = False
+
     @needs_db
     def test(self, *args: str) -> None:
         print("test command")
@@ -369,10 +372,31 @@ class Cli:
         self.clean_empty_folders()
 
     @needs_db
+    def __add_note(
+        self,
+        tags: list[str],
+        note_format: Optional[str] = None,
+        parameters: Optional[dict] = None,
+        folder: bool = False,
+    ) -> Note:
+        if not note_format:
+            note_format = config.get_default_format_class()()
+        note = self.nm.make_note(note_format)
+        for tag in tags:
+            note.add_tag(tag)
+        if parameters:
+            for k, v in parameters.items():
+                note.set_param(k, v)
+        if folder:
+            note.set_bool_param("folder", folder)
+        note.save()
+        return note
+
+    @needs_db
     def add(self, *args: str) -> None:
         tags = []
         i = 0
-        noteFormat = config.get_default_format_class()()
+        note_format = config.get_default_format_class()()
         while True:
             if i >= len(args):
                 break
@@ -381,14 +405,11 @@ class Cli:
                 i += 1
                 tags += args[i].split(",")
             elif arg == "md":
-                noteFormat = MdNoteFormat()
+                note_format = MdNoteFormat()
             elif arg == "norg":
-                noteFormat = NorgNoteFormat()
+                note_format = NorgNoteFormat()
             i += 1
-        note = self.nm.make_note(noteFormat)
-        for tag in tags:
-            note.add_tag(tag)
-        note.save()
+        note = self.__add_note(tags, note_format)
         print(
             f"New note with id {note.get_param('id')} created in path: {note.filepath}"
         )
@@ -468,12 +489,16 @@ class Cli:
             "active_only": active_only,
         }
 
-    def __search(self, search_options):
-        search_tags = search_options["search_tags"]
-        exclude_tags = search_options["exclude_tags"]
-        active_only = search_options["active_only"]
+    def __search(self, search_options: dict):
+        search_tags = search_options.get("search_tags", [])
+        exclude_tags = search_options.get("exclude_tags", [])
+        active_only = search_options.get("active_only", False)
+        latest_only = search_options.get("latest_only", False)
+        note_id = search_options.get("note_id", None)
         search_result: list[Note] = []
         for note in self.nm.iter_notes():
+            if note_id and note.get_id() == note_id:
+                return [note]
             is_ok = True
             note_tags = note.get_tags()
             for tag in search_tags:
@@ -488,6 +513,17 @@ class Cli:
                 is_ok = False
             if is_ok:
                 search_result.append(note)
+        if note_id:
+            return []
+        if latest_only and len(search_result) > 1:
+            latest_note = search_result[0]
+            for note in search_result[1:]:
+                if (
+                    latest_note.get_created_at().timestamp()
+                    < note.get_created_at().timestamp()
+                ):
+                    latest_note = note
+            return [latest_note]
         return search_result
 
     @needs_db
@@ -673,19 +709,40 @@ class Cli:
         save_config_in_db()
 
     @needs_db
-    def get_json_search_result(self, *args):
-        search_options = self.__search_parse_args(args)
+    def get_json_search_result(self, search_options):
         search_result = self.__search(search_options)
         result = {
             "notes": [],
         }
         for note in search_result:
-            result["notes"].append(note.to_dict_for_json())
-        return json.dumps(result)
+            note_as_dict = note.to_dict_for_json()
+            child_files = db.cur.execute(
+                "SELECT * FROM yaml_notes_child_files WHERE note_id = ?",
+                (note.get_id(),),
+            ).fetchall()
+            note_as_dict["child_files"] = child_files
+            result["notes"].append(note_as_dict)
+        return result
 
     @needs_db
-    def json_search(self, *args):
-        print(self.get_json_search_result(*args))
+    def json_search(self, json_str):
+        self.no_verbose()
+        search_options = json.loads(json_str)
+        result = self.get_json_search_result(search_options)
+        print(json.dumps(result))
+
+    @needs_db
+    def json_add_note(self, json_str):
+        self.no_verbose()
+        options: dict = json.loads(json_str)
+        note = self.__add_note(
+            **options
+            # options.get("tags", []), options.get("note_format", None), options.get("parameters", None)
+        )
+        result = {
+            "note": note.to_dict_for_json(),
+        }
+        print(json.dumps(result))
 
 
 if __name__ == "__main__":
